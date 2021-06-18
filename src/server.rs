@@ -12,13 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::app::App;
 use crate::router::{Handler, Router};
+use hyper::server::conn::AddrStream;
 use hyper::service::make_service_fn;
 use hyper::service::service_fn;
 use hyper::Body;
 use hyper::Method;
 use hyper::Request;
 use hyper::Server as HyperServer;
+use core::str;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
@@ -44,18 +47,34 @@ impl Server {
         self.router.add(path, method, handler);
     }
 
+    pub fn mount(&mut self, mount_point: &str, app: App) {
+        for x in app.apps() {
+            let subapp = *x;
+            let path = String::from(subapp.path);
+            let path = format!("{}{}", mount_point, path);
+            let method = subapp.method;
+            let handler = subapp.handler;
+            self.router.add(&path, method, handler);
+        }
+    }
+
     pub async fn run(self) {
         let shared_router = Arc::new(self.router);
-        let service = make_service_fn(move |_| {
+        let service = make_service_fn(move |conn: &AddrStream| {
+            let addr: String = conn.remote_addr().to_string();
             let router_capture = shared_router.clone();
-            async { Ok::<_, Error>(service_fn(move |req| route(router_capture.clone(), req))) }
+            async {
+                Ok::<_, Error>(service_fn(move |req| route(router_capture.clone(), req, addr.clone())))
+            }
         });
         let server = HyperServer::bind(&self.addr).serve(service);
+        info!("Listening on http://{}", self.addr);
         let _ = server.await;
     }
 }
 
-async fn route(router: Arc<Router>, req: Request<Body>) -> Result<HttpResponse, Error> {
+async fn route(router: Arc<Router>, req: Request<Body>, addr: String) -> Result<HttpResponse, Error> {
+    info!("{} {} {}", req.method(), req.uri(), addr);
     let found_handler = router.route(req.uri().path(), req.method());
     let res = found_handler.handler.invoke().await;
     Ok(res)

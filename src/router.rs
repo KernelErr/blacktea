@@ -13,13 +13,13 @@
 // limitations under the License.
 
 use std::future::Future;
-
+use crate::response::HttpResponse;
 use async_trait::async_trait;
 use fnv::FnvHashMap;
 use hyper::{Method, Response, StatusCode};
 use route_recognizer::{Params, Router as InternalRouter};
 
-type HttpResponse = hyper::Response<hyper::Body>;
+type HyperResponse = hyper::Response<hyper::Body>;
 
 pub struct Router {
     method_map: FnvHashMap<Method, InternalRouter<Box<dyn Handler>>>,
@@ -27,7 +27,7 @@ pub struct Router {
 
 #[async_trait]
 pub trait Handler: Send + Sync + 'static {
-    async fn invoke(&self) -> HttpResponse;
+    async fn invoke(&self) -> HyperResponse;
 }
 
 #[async_trait]
@@ -37,18 +37,24 @@ where
     Fut: Future + Send + 'static,
     Fut::Output: IntoResponse,
 {
-    async fn invoke(&self) -> HttpResponse {
+    async fn invoke(&self) -> HyperResponse {
         (self)().await.into_response()
     }
 }
 
 pub trait IntoResponse: Send + Sized {
-    fn into_response(self) -> HttpResponse;
+    fn into_response(self) -> HyperResponse;
+}
+
+impl IntoResponse for HyperResponse {
+    fn into_response(self) -> HyperResponse {
+        self
+    }
 }
 
 impl IntoResponse for HttpResponse {
-    fn into_response(self) -> HttpResponse {
-        self
+    fn into_response(self) -> HyperResponse {
+        self.res()
     }
 }
 
@@ -98,7 +104,7 @@ impl Router {
     }
 }
 
-async fn not_found_handler() -> HttpResponse {
+async fn not_found_handler() -> HyperResponse {
     Response::builder()
         .status(StatusCode::NOT_FOUND)
         .body("NOT FOUND".into())

@@ -13,12 +13,14 @@
 // limitations under the License.
 
 // #![deny(warnings)]
+#[macro_use] extern crate log;
 pub mod context;
 mod response;
 pub mod router;
 mod server;
+mod app;
 
+pub use self::app::App;
 pub use self::response::HttpResponse;
 pub use self::server::Server;
 pub use hyper::Method;
-pub type Response = hyper::Response<hyper::Body>;

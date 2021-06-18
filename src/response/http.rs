@@ -34,6 +34,13 @@ impl HttpResponse<Body> {
     pub fn res(self) -> Response<Body> {
         self.res
     }
+
+    #[inline]
+    pub fn from_builder(res: Response<Body>) -> Self {
+        Self {
+            res
+        }
+    }
 }
 
 pub struct HttpResponseBuilder {
@@ -45,7 +52,7 @@ impl HttpResponseBuilder {
         Self { builder }
     }
 
-    pub fn text(self, value: String) -> Response<Body> {
+    pub fn text(self, value: String) -> HttpResponse {
         let builder = self.builder;
         let contains = if let Some(header) = builder.headers_ref() {
             header.contains_key(header::CONTENT_TYPE)
@@ -55,13 +62,13 @@ impl HttpResponseBuilder {
 
         if !contains {
             let builder = builder.header("Content-Type", mime::TEXT_PLAIN.to_string());
-            return builder.body(Body::from(value)).unwrap();
+            return HttpResponse::from_builder(builder.body(Body::from(value)).unwrap());
         }
 
-        builder.body(Body::from(value)).unwrap()
+        HttpResponse::from_builder(builder.body(Body::from(value)).unwrap())
     }
 
-    pub fn json(self, value: impl Serialize) -> Response<Body> {
+    pub fn json(self, value: impl Serialize) -> HttpResponse {
         let builder = self.builder;
         match serde_json::to_string(&value) {
             Ok(body) => {
@@ -74,15 +81,17 @@ impl HttpResponseBuilder {
                 if !contains {
                     let builder =
                         builder.header("Content-Type", mime::APPLICATION_JSON.to_string());
-                    return builder.body(Body::from(body)).unwrap();
+                    return HttpResponse::from_builder(builder.body(Body::from(body)).unwrap());
                 }
 
-                builder.body(Body::from(body)).unwrap()
+                HttpResponse::from_builder(builder.body(Body::from(body)).unwrap())
             }
-            Err(_) => HttpResponse::InternalServerError()
+            Err(_) => {
+                HttpResponse::from_builder(HttpResponse::InternalServerError()
                 .builder
                 .body(Body::from("Error"))
-                .unwrap(),
+                .unwrap())
+            },
         }
     }
 }

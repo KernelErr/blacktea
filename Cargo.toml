@@ -1,6 +1,6 @@
 [package]
 name = "blacktea"
-version = "0.1.0"
+version = "0.1.1"
 description = "A new comfortable back end framework for rustaceans"
 authors = ["LI Rui <lr_cn@outlook.com>"]
 readme = "README.md"
@@ -23,5 +23,3 @@ route-recognizer = "0.3.0"
 fnv = "1.0.7"
 async-trait = "0.1.50"
 log = "0.4"
-pretty_env_logger = "0.4"
-jsonwebtoken = "7.2.0"

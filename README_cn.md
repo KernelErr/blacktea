@@ -16,23 +16,30 @@ Black Tea是一款新兴的Rust后端框架，基于hyper开发。我们致力�
 
 ```toml
 [dependencies]
-blacktea = "0.1.0"
+blacktea = "0.1.1"
 tokio = { version = "1", features = ["full"] }
+# 启用日志
+# log = "0.4"
+# pretty_env_logger = "0.4"
 ```
 
 ## 最小样例代码
 
 ```rust
-use blacktea::{Server, HttpResponse, Response, Method};
+use blacktea::{Server, HttpResponse, Method, App};
 
-async fn hello() -> Response {
+async fn hello() -> HttpResponse {
     HttpResponse::Ok().text("Hello, world!".into())
 }
 
 #[tokio::main]
 async fn main() {
+    // 启用日志，设置环境变量：RUST_LOG=info
+    // pretty_env_logger::init();
     let mut server = Server::new("127.0.0.1:8080".into());
-    server.service("/hello", Method::GET, Box::new(hello));
+	let mut app = App::new();
+	app.add("/hello", Method::GET, Box::new(hello));
+    server.mount("/v1", app);
     server.run().await
 }
 ```

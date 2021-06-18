@@ -16,23 +16,30 @@ Add dependencies in `Cargo.toml`:
 
 ```toml
 [dependencies]
-blacktea = "0.1.0"
+blacktea = "0.1.1"
 tokio = { version = "1", features = ["full"] }
+# Enable logging
+# log = "0.4"
+# pretty_env_logger = "0.4"
 ```
 
 ## Minimal Example Code
 
 ```rust
-use blacktea::{Server, HttpResponse, Response, Method};
+use blacktea::{Server, HttpResponse, Method, App};
 
-async fn hello() -> Response {
+async fn hello() -> HttpResponse {
     HttpResponse::Ok().text("Hello, world!".into())
 }
 
 #[tokio::main]
 async fn main() {
+    // Enable logging, set RUST_LOG=info
+    // pretty_env_logger::init();
     let mut server = Server::new("127.0.0.1:8080".into());
-    server.service("/hello", Method::GET, Box::new(hello));
+	let mut app = App::new();
+	app.add("/hello", Method::GET, Box::new(hello));
+    server.mount("/v1", app);
     server.run().await
 }
 ```
