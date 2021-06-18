@@ -1,6 +1,14 @@
 [package]
 name = "blacktea"
 version = "0.1.0"
+description = "A new comfortable back end framework for rustaceans"
+authors = ["LI Rui <lr_cn@outlook.com>"]
+readme = "README.md"
+keywords = ["blacktea", "http", "web", "framework", "backend"]
+categories = ["web-programming::http-server"]
+homepage = "https://blacktea.lirui.tech"
+repository = "https://github.com/KernelErr/blacktea"
+license = "Apache-2.0"
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

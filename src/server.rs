@@ -12,12 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
-use crate::app::App;
-use crate::router::Router;
+use crate::router::{Handler, Router};
+use hyper::service::make_service_fn;
+use hyper::service::service_fn;
+use hyper::Body;
+use hyper::Method;
+use hyper::Request;
+use hyper::Server as HyperServer;
 use std::net::SocketAddr;
+use std::sync::Arc;
 
-pub struct Server{
+type HttpResponse = hyper::Response<hyper::Body>;
+type Error = Box<dyn std::error::Error + Send + Sync + 'static>;
+
+pub struct Server {
     addr: SocketAddr,
     router: Router,
 }
@@ -32,15 +40,23 @@ impl Server {
         }
     }
 
-    #[inline]
-    pub fn mount(&mut self, app: App) {
-        for i in app.get_service() {
-            self.router.add(i);
-        }
+    pub fn service(&mut self, path: &str, method: Method, handler: Box<dyn Handler>) {
+        self.router.add(path, method, handler);
     }
 
-    #[inline]
-    pub fn run(self) {
-        
+    pub async fn run(self) {
+        let shared_router = Arc::new(self.router);
+        let service = make_service_fn(move |_| {
+            let router_capture = shared_router.clone();
+            async { Ok::<_, Error>(service_fn(move |req| route(router_capture.clone(), req))) }
+        });
+        let server = HyperServer::bind(&self.addr).serve(service);
+        let _ = server.await;
     }
+}
+
+async fn route(router: Arc<Router>, req: Request<Body>) -> Result<HttpResponse, Error> {
+    let found_handler = router.route(req.uri().path(), req.method());
+    let res = found_handler.handler.invoke().await;
+    Ok(res)
 }

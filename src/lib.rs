@@ -13,9 +13,12 @@
 // limitations under the License.
 
 // #![deny(warnings)]
-pub mod app;
-pub mod response;
-pub mod server;
-pub mod service;
-pub mod router;
 pub mod context;
+mod response;
+pub mod router;
+mod server;
+
+pub use self::response::HttpResponse;
+pub use self::server::Server;
+pub use hyper::Method;
+pub type Response = hyper::Response<hyper::Body>;

@@ -31,11 +31,6 @@ pub struct HttpResponse<B = Body> {
 
 impl HttpResponse<Body> {
     #[inline]
-    pub fn new(status: StatusCode) -> HttpResponseBuilder {
-        HttpResponseBuilder::new(HyperHttpResponseBuilder::new().status(status))
-    }
-
-    #[inline]
     pub fn res(self) -> Response<Body> {
         self.res
     }
@@ -51,7 +46,7 @@ impl HttpResponseBuilder {
     }
 
     pub fn text(self, value: String) -> Response<Body> {
-        let builder = HyperHttpResponseBuilder::from(self.builder);
+        let builder = self.builder;
         let contains = if let Some(header) = builder.headers_ref() {
             header.contains_key(header::CONTENT_TYPE)
         } else {
@@ -67,7 +62,7 @@ impl HttpResponseBuilder {
     }
 
     pub fn json(self, value: impl Serialize) -> Response<Body> {
-        let builder = HyperHttpResponseBuilder::from(self.builder);
+        let builder = self.builder;
         match serde_json::to_string(&value) {
             Ok(body) => {
                 let contains = if let Some(header) = builder.headers_ref() {
@@ -77,15 +72,17 @@ impl HttpResponseBuilder {
                 };
 
                 if !contains {
-                    let builder = builder.header("Content-Type", mime::APPLICATION_JSON.to_string());
-                    return builder.body(Body::from(body)).unwrap()
+                    let builder =
+                        builder.header("Content-Type", mime::APPLICATION_JSON.to_string());
+                    return builder.body(Body::from(body)).unwrap();
                 }
 
-               builder.body(Body::from(body)).unwrap()
-            },
-            Err(err) => {
-                HttpResponse::InternalServerError().builder.body(Body::from("Error")).unwrap()
-            },
+                builder.body(Body::from(body)).unwrap()
+            }
+            Err(_) => HttpResponse::InternalServerError()
+                .builder
+                .body(Body::from("Error"))
+                .unwrap(),
         }
     }
 }

@@ -215,3 +215,4 @@ Black Tea used some part of code in projects below. They are licensed under
 Apache 2.0 license.
 
    actix/actix-web: https://github.com/actix/actix-web Apache 2.0
+   zupzup/rust-minimal-web-service-hyper: https://github.com/zupzup/rust-minimal-web-service-hyper Apache 2.0

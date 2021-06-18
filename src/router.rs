@@ -1,11 +1,11 @@
 // Copyright 2021 Black Tea Authors
-// 
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-// 
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
-// 
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -13,17 +13,15 @@
 // limitations under the License.
 
 use std::future::Future;
-use crate::service::Service;
 
-use route_recognizer::{Params, Router as InternalRouter};
-use hyper::{Method, Response, StatusCode};
-use fnv::FnvHashMap;
 use async_trait::async_trait;
+use fnv::FnvHashMap;
+use hyper::{Method, Response, StatusCode};
+use route_recognizer::{Params, Router as InternalRouter};
 
 type HttpResponse = hyper::Response<hyper::Body>;
 
-pub struct Router
-{
+pub struct Router {
     method_map: FnvHashMap<Method, InternalRouter<Box<dyn Handler>>>,
 }
 
@@ -37,7 +35,7 @@ impl<F: Send + Sync + 'static, Fut> Handler for F
 where
     F: Fn() -> Fut,
     Fut: Future + Send + 'static,
-    Fut::Output: IntoResponse
+    Fut::Output: IntoResponse,
 {
     async fn invoke(&self) -> HttpResponse {
         (self)().await.into_response()
@@ -59,6 +57,12 @@ pub struct RouterMatch<'a> {
     pub params: Params,
 }
 
+impl Default for Router {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Router {
     pub fn new() -> Self {
         Self {
@@ -66,12 +70,12 @@ impl Router {
         }
     }
 
-    pub fn add<F>(&mut self, service: Service<F>) {
+    pub fn add(&mut self, path: &str, method: Method, handler: Box<dyn Handler>) {
         self.method_map
-            .entry(service.method())
+            .entry(method)
             .or_insert_with(InternalRouter::new)
-            .add(&service.path(), Box::new(service.handler()));
-    } 
+            .add(path, handler);
+    }
 
     pub fn route(&self, path: &str, method: &Method) -> RouterMatch {
         if let Some(m) = self
@@ -99,4 +103,4 @@ async fn not_found_handler() -> HttpResponse {
         .status(StatusCode::NOT_FOUND)
         .body("NOT FOUND".into())
         .unwrap()
-} 
+}
