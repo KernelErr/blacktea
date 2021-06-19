@@ -37,9 +37,7 @@ impl HttpResponse<Body> {
 
     #[inline]
     pub fn from_builder(res: Response<Body>) -> Self {
-        Self {
-            res
-        }
+        Self { res }
     }
 }
 
@@ -52,7 +50,8 @@ impl HttpResponseBuilder {
         Self { builder }
     }
 
-    pub fn text(self, value: String) -> HttpResponse {
+    pub fn text(self, value: &str) -> HttpResponse {
+        let value = String::from(value);
         let builder = self.builder;
         let contains = if let Some(header) = builder.headers_ref() {
             header.contains_key(header::CONTENT_TYPE)
@@ -86,12 +85,12 @@ impl HttpResponseBuilder {
 
                 HttpResponse::from_builder(builder.body(Body::from(body)).unwrap())
             }
-            Err(_) => {
-                HttpResponse::from_builder(HttpResponse::InternalServerError()
-                .builder
-                .body(Body::from("Error"))
-                .unwrap())
-            },
+            Err(_) => HttpResponse::from_builder(
+                HttpResponse::InternalServerError()
+                    .builder
+                    .body(Body::from("Error"))
+                    .unwrap(),
+            ),
         }
     }
 }

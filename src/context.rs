@@ -12,11 +12,47 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use fnv::FnvHashMap;
 use hyper::{Body, Request};
 use route_recognizer::Params;
+use url::Url;
 
 #[derive(Debug)]
 pub struct Context {
     pub req: Request<Body>,
-    pub params: Params,
+    pub path_params: Params,
+    pub url_params: FnvHashMap<String, String>,
+}
+
+impl Context {
+    pub fn new(req: Request<Body>, path_params: Params) -> Self {
+        let mut hashmap = FnvHashMap::default();
+        let url = format!("http://localhost{}", req.uri().to_string());
+        let url = Url::parse(&url).unwrap();
+        let params = url.query_pairs();
+        for pair in params {
+            let k = String::from(pair.0.as_ref());
+            let v = String::from(pair.1.as_ref());
+            hashmap.insert(k, v);
+        }
+        Self {
+            req,
+            path_params,
+            url_params: hashmap,
+        }
+    }
+
+    pub fn url_params(self, key: &str) -> Option<String> {
+        let params = self.path_params.find(key);
+        if let Some(params) = params {
+            let params = String::from(params);
+            return Some(params);
+        }
+        let params = self.url_params.get(key);
+        if let Some(params) = params {
+            let params = String::from(params);
+            return Some(params);
+        }
+        None
+    }
 }

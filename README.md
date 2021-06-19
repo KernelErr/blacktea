@@ -23,22 +23,32 @@ tokio = { version = "1", features = ["full"] }
 # pretty_env_logger = "0.4"
 ```
 
-## Minimal Example Code
+## Example Code
+
+> Code below only suits with version on GitHub, for published version, please refer to Crates.
 
 ```rust
-use blacktea::{Server, HttpResponse, Method, App};
+use blacktea::{Server, HttpResponse, Method, App, Context};
 
-async fn hello() -> HttpResponse {
-    HttpResponse::Ok().text("Hello, world!".into())
+async fn get_echo(cxt: Context) -> HttpResponse {
+    let params = cxt.url_params("msg");
+    if let Some(msg) = params {
+        HttpResponse::Ok().text(&msg)
+    } else {
+        HttpResponse::Ok().text("Echo!")
+    }
 }
 
 #[tokio::main]
 async fn main() {
     // Enable logging, set RUST_LOG=info
     // pretty_env_logger::init();
-    let mut server = Server::new("127.0.0.1:8080".into());
+    let mut server = Server::new("127.0.0.1:8080");
 	let mut app = App::new();
-	app.add("/hello", Method::GET, Box::new(hello));
+    // echo?msg=hello
+	app.add("/echo", Method::GET, Box::new(get_echo));
+    // echo/hello
+    app.add("/echo/:msg",Method::GET, Box::new(get_echo));
     server.mount("/v1", app);
     server.run().await
 }

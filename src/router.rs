@@ -12,12 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::future::Future;
+use crate::context::Context;
 use crate::response::HttpResponse;
 use async_trait::async_trait;
 use fnv::FnvHashMap;
 use hyper::{Method, Response, StatusCode};
 use route_recognizer::{Params, Router as InternalRouter};
+use std::future::Future;
 
 type HyperResponse = hyper::Response<hyper::Body>;
 
@@ -27,18 +28,18 @@ pub struct Router {
 
 #[async_trait]
 pub trait Handler: Send + Sync + 'static {
-    async fn invoke(&self) -> HyperResponse;
+    async fn invoke(&self, context: Context) -> HyperResponse;
 }
 
 #[async_trait]
 impl<F: Send + Sync + 'static, Fut> Handler for F
 where
-    F: Fn() -> Fut,
+    F: Fn(Context) -> Fut,
     Fut: Future + Send + 'static,
     Fut::Output: IntoResponse,
 {
-    async fn invoke(&self) -> HyperResponse {
-        (self)().await.into_response()
+    async fn invoke(&self, context: Context) -> HyperResponse {
+        (self)(context).await.into_response()
     }
 }
 
@@ -104,7 +105,7 @@ impl Router {
     }
 }
 
-async fn not_found_handler() -> HyperResponse {
+async fn not_found_handler(_: Context) -> HyperResponse {
     Response::builder()
         .status(StatusCode::NOT_FOUND)
         .body("NOT FOUND".into())

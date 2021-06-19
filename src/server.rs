@@ -13,7 +13,9 @@
 // limitations under the License.
 
 use crate::app::App;
+use crate::context::Context;
 use crate::router::{Handler, Router};
+use core::str;
 use hyper::server::conn::AddrStream;
 use hyper::service::make_service_fn;
 use hyper::service::service_fn;
@@ -21,7 +23,6 @@ use hyper::Body;
 use hyper::Method;
 use hyper::Request;
 use hyper::Server as HyperServer;
-use core::str;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
@@ -35,7 +36,8 @@ pub struct Server {
 
 impl Server {
     #[inline]
-    pub fn new(addr: String) -> Self {
+    pub fn new(addr: &str) -> Self {
+        let addr = String::from(addr);
         let addr: SocketAddr = addr.parse().expect("Failed to parse server address.");
         Self {
             addr,
@@ -48,10 +50,8 @@ impl Server {
     }
 
     pub fn mount(&mut self, mount_point: &str, app: App) {
-        for x in app.apps() {
-            let subapp = *x;
-            let path = String::from(subapp.path);
-            let path = format!("{}{}", mount_point, path);
+        for subapp in app.apps() {
+            let path = format!("{}{}", mount_point, subapp.path);
             let method = subapp.method;
             let handler = subapp.handler;
             self.router.add(&path, method, handler);
@@ -64,7 +64,9 @@ impl Server {
             let addr: String = conn.remote_addr().to_string();
             let router_capture = shared_router.clone();
             async {
-                Ok::<_, Error>(service_fn(move |req| route(router_capture.clone(), req, addr.clone())))
+                Ok::<_, Error>(service_fn(move |req| {
+                    route(router_capture.clone(), addr.clone(), req)
+                }))
             }
         });
         let server = HyperServer::bind(&self.addr).serve(service);
@@ -73,9 +75,16 @@ impl Server {
     }
 }
 
-async fn route(router: Arc<Router>, req: Request<Body>, addr: String) -> Result<HttpResponse, Error> {
+async fn route(
+    router: Arc<Router>,
+    addr: String,
+    req: Request<Body>,
+) -> Result<HttpResponse, Error> {
     info!("{} {} {}", req.method(), req.uri(), addr);
     let found_handler = router.route(req.uri().path(), req.method());
-    let res = found_handler.handler.invoke().await;
+    let res = found_handler
+        .handler
+        .invoke(Context::new(req, found_handler.params))
+        .await;
     Ok(res)
 }

@@ -23,22 +23,32 @@ tokio = { version = "1", features = ["full"] }
 # pretty_env_logger = "0.4"
 ```
 
-## 最小样例代码
+## 样例代码
+
+> 以下代码仅适用于GitHub版本，当前版本代码请参考Crates。
 
 ```rust
-use blacktea::{Server, HttpResponse, Method, App};
+use blacktea::{Server, HttpResponse, Method, App, Context};
 
-async fn hello() -> HttpResponse {
-    HttpResponse::Ok().text("Hello, world!".into())
+async fn get_echo(cxt: Context) -> HttpResponse {
+    let params = cxt.url_params("msg");
+    if let Some(msg) = params {
+        HttpResponse::Ok().text(&msg)
+    } else {
+        HttpResponse::Ok().text("Echo!")
+    }
 }
 
 #[tokio::main]
 async fn main() {
     // 启用日志，设置环境变量：RUST_LOG=info
     // pretty_env_logger::init();
-    let mut server = Server::new("127.0.0.1:8080".into());
+    let mut server = Server::new("127.0.0.1:8080");
 	let mut app = App::new();
-	app.add("/hello", Method::GET, Box::new(hello));
+    // echo?msg=hello
+	app.add("/echo", Method::GET, Box::new(get_echo));
+    // echo/hello
+    app.add("/echo/:msg",Method::GET, Box::new(get_echo));
     server.mount("/v1", app);
     server.run().await
 }
