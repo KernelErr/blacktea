@@ -43,12 +43,16 @@ impl Context {
     }
 
     pub fn url_params(self, key: &str) -> Option<String> {
-        let params = self.path_params.find(key);
+        let params = self.url_params.get(key);
         if let Some(params) = params {
             let params = String::from(params);
             return Some(params);
         }
-        let params = self.url_params.get(key);
+        None
+    }
+
+    pub fn path_params(self, key: &str) -> Option<String> {
+        let params = self.path_params.find(key);
         if let Some(params) = params {
             let params = String::from(params);
             return Some(params);

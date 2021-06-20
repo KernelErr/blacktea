@@ -30,8 +30,17 @@ tokio = { version = "1", features = ["full"] }
 ```rust
 use blacktea::{Server, HttpResponse, Method, App, Context};
 
-async fn get_echo(cxt: Context) -> HttpResponse {
+async fn url_echo(cxt: Context) -> HttpResponse {
     let params = cxt.url_params("msg");
+    if let Some(msg) = params {
+        HttpResponse::Ok().text(&msg)
+    } else {
+        HttpResponse::Ok().text("Echo!")
+    }
+}
+
+async fn path_echo(cxt: Context) -> HttpResponse {
+    let params = cxt.path_params("msg");
     if let Some(msg) = params {
         HttpResponse::Ok().text(&msg)
     } else {
@@ -44,11 +53,11 @@ async fn main() {
     // Enable logging, set RUST_LOG=info
     // pretty_env_logger::init();
     let mut server = Server::new("127.0.0.1:8080");
-	let mut app = App::new();
+    let mut app = App::new();
     // echo?msg=hello
-	app.add("/echo", Method::GET, Box::new(get_echo));
+    app.add("/echo", Method::GET, Box::new(url_echo));
     // echo/hello
-    app.add("/echo/:msg",Method::GET, Box::new(get_echo));
+    app.add("/echo/:msg",Method::GET, Box::new(path_echo));
     server.mount("/v1", app);
     server.run().await
 }
