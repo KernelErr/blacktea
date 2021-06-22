@@ -50,6 +50,15 @@ impl HttpResponseBuilder {
         Self { builder }
     }
 
+    pub fn header(self, key: &str, value: &str) -> Self {
+        let builder = self.builder.header(key, value);
+        Self { builder }
+    }
+
+    pub fn empty(self) -> HttpResponse {
+        HttpResponse::from_builder(self.builder.body(Body::empty()).unwrap())
+    }
+
     pub fn text(self, value: &str) -> HttpResponse {
         let value = String::from(value);
         let builder = self.builder;
@@ -60,7 +69,7 @@ impl HttpResponseBuilder {
         };
 
         if !contains {
-            let builder = builder.header("Content-Type", mime::TEXT_PLAIN.to_string());
+            let builder = builder.header("Content-Type", "text/html; charset=UTF-8");
             return HttpResponse::from_builder(builder.body(Body::from(value)).unwrap());
         }
 
