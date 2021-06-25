@@ -12,55 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::context::Context;
+use crate::app::SubApp;
+use crate::extract::FromRequest;
+use crate::factory::{factory, BoxServiceFactory, Handler, HandlerService};
 use crate::response::HttpResponse;
-use async_trait::async_trait;
 use fnv::FnvHashMap;
 use hyper::{Method, Response, StatusCode};
 use route_recognizer::{Params, Router as InternalRouter};
 use std::future::Future;
 
-type HyperResponse = hyper::Response<hyper::Body>;
-
 pub struct Router {
-    method_map: FnvHashMap<Method, InternalRouter<Box<dyn Handler>>>,
-}
+    method_map: FnvHashMap<Method, InternalRouter<BoxServiceFactory<HttpResponse>>>,
 
-#[async_trait]
-pub trait Handler: Send + Sync + 'static {
-    async fn invoke(&self, context: Context) -> HyperResponse;
-}
-
-#[async_trait]
-impl<F: Send + Sync + 'static, Fut> Handler for F
-where
-    F: Fn(Context) -> Fut,
-    Fut: Future + Send + 'static,
-    Fut::Output: IntoResponse,
-{
-    async fn invoke(&self, context: Context) -> HyperResponse {
-        (self)(context).await.into_response()
-    }
-}
-
-pub trait IntoResponse: Send + Sized {
-    fn into_response(self) -> HyperResponse;
-}
-
-impl IntoResponse for HyperResponse {
-    fn into_response(self) -> HyperResponse {
-        self
-    }
-}
-
-impl IntoResponse for HttpResponse {
-    fn into_response(self) -> HyperResponse {
-        self.res()
-    }
+    not_found_handler: BoxServiceFactory<HttpResponse>,
 }
 
 pub struct RouterMatch<'a> {
-    pub handler: &'a dyn Handler,
+    pub handler: &'a BoxServiceFactory<HttpResponse>,
     pub params: Params,
 }
 
@@ -74,14 +42,27 @@ impl Router {
     pub fn new() -> Self {
         Self {
             method_map: FnvHashMap::default(),
+            not_found_handler: factory(HandlerService::new(not_found_handler)),
         }
     }
 
-    pub fn add(&mut self, path: &str, method: Method, handler: Box<dyn Handler>) {
+    pub fn add<F, T, R>(&mut self, path: &str, method: Method, handler: F)
+    where
+        F: Handler<T, R>,
+        T: FromRequest,
+        R: Future<Output = HttpResponse> + Send + Sync + 'static,
+    {
         self.method_map
             .entry(method)
             .or_insert_with(InternalRouter::new)
-            .add(path, handler);
+            .add(path, factory(HandlerService::new(handler)));
+    }
+
+    pub fn mount(&mut self, path: &str, sub_app: SubApp) {
+        self.method_map
+            .entry(sub_app.method)
+            .or_insert_with(InternalRouter::new)
+            .add(&format!("{}{}", path, sub_app.path), sub_app.handler);
     }
 
     pub fn route(&self, path: &str, method: &Method) -> RouterMatch {
@@ -93,21 +74,23 @@ impl Router {
             let mut params = Params::new();
             params.clone_from(m.params());
             RouterMatch {
-                handler: &***m.handler(),
+                handler: m.handler(),
                 params,
             }
         } else {
             RouterMatch {
-                handler: &not_found_handler,
+                handler: &self.not_found_handler,
                 params: Params::new(),
             }
         }
     }
 }
 
-async fn not_found_handler(_: Context) -> HyperResponse {
-    Response::builder()
-        .status(StatusCode::NOT_FOUND)
-        .body("NOT FOUND".into())
-        .unwrap()
+async fn not_found_handler() -> HttpResponse {
+    HttpResponse::from_builder(
+        Response::builder()
+            .status(StatusCode::NOT_FOUND)
+            .body("NOT FOUND".into())
+            .unwrap(),
+    )
 }

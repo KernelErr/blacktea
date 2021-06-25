@@ -21,6 +21,8 @@ serde_json = "1.0.64"
 mime = "0.3.16"
 route-recognizer = "0.3.0"
 fnv = "1.0.7"
-async-trait = "0.1.50"
 log = "0.4"
 url = "2.2.2"
+
+[[example]]
+name = "basic"

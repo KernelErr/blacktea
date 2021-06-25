@@ -14,7 +14,10 @@
 
 use crate::app::App;
 use crate::context::Context;
-use crate::router::{Handler, Router};
+use crate::extract::{FromRequest, IntoResponse};
+use crate::factory::{Handler, ServiceFactory};
+use crate::response::HttpResponse;
+use crate::router::Router;
 use core::str;
 use hyper::server::conn::AddrStream;
 use hyper::service::make_service_fn;
@@ -23,10 +26,11 @@ use hyper::Body;
 use hyper::Method;
 use hyper::Request;
 use hyper::Server as HyperServer;
+use std::future::Future;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-type HttpResponse = hyper::Response<hyper::Body>;
+type Response = hyper::Response<hyper::Body>;
 type Error = Box<dyn std::error::Error + Send + Sync + 'static>;
 
 pub struct Server {
@@ -45,16 +49,18 @@ impl Server {
         }
     }
 
-    pub fn service(&mut self, path: &str, method: Method, handler: Box<dyn Handler>) {
+    pub fn service<F, T, R>(&mut self, path: &str, method: Method, handler: F)
+    where
+        F: Handler<T, R> + Send + Sync + 'static,
+        T: FromRequest + Send + Sync + 'static,
+        R: Future<Output = HttpResponse> + Send + Sync + 'static,
+    {
         self.router.add(path, method, handler);
     }
 
     pub fn mount(&mut self, mount_point: &str, app: App) {
         for subapp in app.apps() {
-            let path = format!("{}{}", mount_point, subapp.path);
-            let method = subapp.method;
-            let handler = subapp.handler;
-            self.router.add(&path, method, handler);
+            self.router.mount(mount_point, subapp);
         }
     }
 
@@ -75,16 +81,15 @@ impl Server {
     }
 }
 
-async fn route(
-    router: Arc<Router>,
-    addr: String,
-    req: Request<Body>,
-) -> Result<HttpResponse, Error> {
+async fn route(router: Arc<Router>, addr: String, req: Request<Body>) -> Result<Response, Error> {
     info!("{} {} {}", req.method(), req.uri(), addr);
     let found_handler = router.route(req.uri().path(), req.method());
     let res = found_handler
         .handler
-        .invoke(Context::new(req, found_handler.params))
-        .await;
+        .new_service()
+        .await
+        .call(Context::new(req, found_handler.params))
+        .await
+        .into_response();
     Ok(res)
 }
