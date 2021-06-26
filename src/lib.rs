@@ -21,8 +21,12 @@ mod response;
 pub mod router;
 mod server;
 
+mod extract;
+pub mod factory;
+
 pub use self::app::App;
 pub use self::context::Context;
+pub use self::extract::HyperResponse;
 pub use self::response::HttpResponse;
 pub use self::server::Server;
 pub use hyper::Method;

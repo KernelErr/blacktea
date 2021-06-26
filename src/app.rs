@@ -12,8 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::router::Handler;
+use crate::extract::FromRequest;
+use crate::factory::{factory, BoxServiceFactory, Handler, HandlerService};
+use crate::response::HttpResponse;
 use hyper::Method;
+use std::future::Future;
 
 pub struct App {
     apps: Vec<SubApp>,
@@ -22,7 +25,7 @@ pub struct App {
 pub struct SubApp {
     pub path: String,
     pub method: Method,
-    pub handler: Box<dyn Handler>,
+    pub handler: BoxServiceFactory<HttpResponse>,
 }
 
 impl App {
@@ -30,7 +33,12 @@ impl App {
         Self { apps: Vec::new() }
     }
 
-    pub fn add(&mut self, path: &str, method: Method, handler: Box<dyn Handler>) {
+    pub fn add<F, T, R>(&mut self, path: &str, method: Method, handler: F)
+    where
+        F: Handler<T, R>,
+        T: FromRequest,
+        R: Future<Output = HttpResponse> + Send + Sync + 'static,
+    {
         let path = String::from(path);
         let subapp = SubApp::new(path, method, handler);
         self.apps.push(subapp);
@@ -48,23 +56,16 @@ impl Default for App {
 }
 
 impl SubApp {
-    pub fn new(path: String, method: Method, handler: Box<dyn Handler>) -> Self {
+    pub fn new<F, T, R>(path: String, method: Method, handler: F) -> Self
+    where
+        F: Handler<T, R>,
+        T: FromRequest,
+        R: Future<Output = HttpResponse> + Send + Sync + 'static,
+    {
         Self {
             path,
             method,
-            handler,
+            handler: factory(HandlerService::new(handler)),
         }
-    }
-
-    pub fn path(self) -> String {
-        self.path
-    }
-
-    pub fn method(self) -> Method {
-        self.method
-    }
-
-    pub fn handler(self) -> Box<dyn Handler> {
-        self.handler
     }
 }
