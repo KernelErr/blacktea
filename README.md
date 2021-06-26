@@ -28,10 +28,10 @@ tokio = { version = "1", features = ["full"] }
 > Code below only suits with version on GitHub, for published version, please refer to Crates.
 
 ```rust
-use blacktea::{Server, HttpResponse, Method, App, Context};
+use blacktea::{App, HttpResponse, Method, PathParams, Server, URLParams};
 
-async fn url_echo(cxt: Context) -> HttpResponse {
-    let params = cxt.url_params("msg");
+async fn url_echo(params: URLParams) -> HttpResponse {
+    let params = params.get("msg");
     if let Some(msg) = params {
         HttpResponse::Ok().text(&msg)
     } else {
@@ -39,8 +39,8 @@ async fn url_echo(cxt: Context) -> HttpResponse {
     }
 }
 
-async fn path_echo(cxt: Context) -> HttpResponse {
-    let params = cxt.path_params("msg");
+async fn path_echo(params: PathParams) -> HttpResponse {
+    let params = params.find("msg");
     if let Some(msg) = params {
         HttpResponse::Ok().text(&msg)
     } else {
@@ -55,17 +55,13 @@ async fn main() {
     let mut server = Server::new("127.0.0.1:8080");
     let mut app = App::new();
     // echo?msg=hello
-    app.add("/echo", Method::GET, Box::new(url_echo));
+    app.add("/echo", Method::GET, url_echo);
     // echo/hello
-    app.add("/echo/:msg",Method::GET, Box::new(path_echo));
+    app.add("/echo/:msg", Method::GET, path_echo);
     server.mount("/v1", app);
     server.run().await
 }
 ```
-
-## Contribution
-
-Currently Black Tea needs your contribution! To be one of us quickly, you can contact with [KernelErr](https://github.com/KernelErr) directly to get a brief view of this project.
 
 ## License
 

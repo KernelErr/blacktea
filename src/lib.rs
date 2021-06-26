@@ -29,4 +29,5 @@ pub use self::context::Context;
 pub use self::extract::HyperResponse;
 pub use self::response::HttpResponse;
 pub use self::server::Server;
+pub use extract::{Header, HttpVersion, PathParams, URLParams, URL};
 pub use hyper::Method;

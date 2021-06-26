@@ -25,4 +25,4 @@ log = "0.4"
 url = "2.2.2"
 
 [[example]]
-name = "basic"
+name = "echo"

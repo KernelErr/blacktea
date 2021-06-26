@@ -28,10 +28,10 @@ tokio = { version = "1", features = ["full"] }
 > 以下代码仅适用于GitHub版本，当前版本代码请参考Crates。
 
 ```rust
-use blacktea::{Server, HttpResponse, Method, App, Context};
+use blacktea::{App, HttpResponse, Method, PathParams, Server, URLParams};
 
-async fn url_echo(cxt: Context) -> HttpResponse {
-    let params = cxt.url_params("msg");
+async fn url_echo(params: URLParams) -> HttpResponse {
+    let params = params.get("msg");
     if let Some(msg) = params {
         HttpResponse::Ok().text(&msg)
     } else {
@@ -39,8 +39,8 @@ async fn url_echo(cxt: Context) -> HttpResponse {
     }
 }
 
-async fn path_echo(cxt: Context) -> HttpResponse {
-    let params = cxt.path_params("msg");
+async fn path_echo(params: PathParams) -> HttpResponse {
+    let params = params.find("msg");
     if let Some(msg) = params {
         HttpResponse::Ok().text(&msg)
     } else {
@@ -55,17 +55,13 @@ async fn main() {
     let mut server = Server::new("127.0.0.1:8080");
     let mut app = App::new();
     // echo?msg=hello
-    app.add("/echo", Method::GET, Box::new(url_echo));
+    app.add("/echo", Method::GET, url_echo);
     // echo/hello
-    app.add("/echo/:msg",Method::GET, Box::new(path_echo));
+    app.add("/echo/:msg", Method::GET, path_echo);
     server.mount("/v1", app);
     server.run().await
 }
 ```
-
-## 项目贡献
-
-目前Black Tea非常欢迎大家的贡献，为了帮助您能够快速加入我们的开发，您可以直接联系[KernelErr](https://github.com/KernelErr)了解本项目。
 
 ## 开源协议
 
