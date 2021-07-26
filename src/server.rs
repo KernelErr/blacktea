@@ -33,9 +33,38 @@ use std::sync::Arc;
 type Response = hyper::Response<hyper::Body>;
 type Error = Box<dyn std::error::Error + Send + Sync + 'static>;
 
+/// https://github.com/hyperium/hyper/blob/19f38b3e7febadedbfc558d17fa41baff73c6ecc/src/common/exec.rs#L28-L57
+pub enum Executor {
+    Tokio,
+    #[cfg(feature = "tokio_io_uring")]
+    TokioUring,
+}
+
+impl Default for Executor {
+    fn default() -> Self {
+        Self::Tokio
+    }
+}
+
+#[cfg(feature = "tokio_io_uring")]
+#[derive(Clone)]
+struct TokioUringExecutor;
+
+#[cfg(feature = "tokio_io_uring")]
+impl<F> hyper::rt::Executor<F> for TokioUringExecutor
+where
+    F: Future + 'static,
+    F::Output: 'static,
+{
+    fn execute(&self, fut: F) {
+        tokio_uring::spawn(fut);
+    }
+}
+
 pub struct Server {
     addr: SocketAddr,
     router: Router,
+    executor: Executor,
 }
 
 impl Server {
@@ -46,7 +75,12 @@ impl Server {
         Self {
             addr,
             router: Router::new(),
+            executor: Executor::default(),
         }
+    }
+
+    pub fn set_executor(&mut self, executor: Executor) {
+        self.executor = executor;
     }
 
     pub fn service<F, T, R>(&mut self, path: &str, method: Method, handler: F)
@@ -66,18 +100,41 @@ impl Server {
 
     pub async fn run(self) {
         let shared_router = Arc::new(self.router);
-        let service = make_service_fn(move |conn: &AddrStream| {
-            let addr: String = conn.remote_addr().to_string();
-            let router_capture = shared_router.clone();
-            async {
-                Ok::<_, Error>(service_fn(move |req| {
-                    route(router_capture.clone(), addr.clone(), req)
-                }))
+        match self.executor {
+            Executor::Tokio => {
+                let service = make_service_fn(move |conn: &AddrStream| {
+                    let addr: String = conn.remote_addr().to_string();
+                    let router_capture = shared_router.clone();
+                    async {
+                        Ok::<_, Error>(service_fn(move |req| {
+                            route(router_capture.clone(), addr.clone(), req)
+                        }))
+                    }
+                });
+                let server = HyperServer::bind(&self.addr).serve(service);
+                info!("Listening on http://{}", self.addr);
+                let _ = server.await;
             }
-        });
-        let server = HyperServer::bind(&self.addr).serve(service);
-        info!("Listening on http://{}", self.addr);
-        let _ = server.await;
+            #[cfg(feature = "tokio_io_uring")]
+            Executor::TokioUring => {
+                let listener = tokio::net::TcpListener::bind(self.addr)
+                    .await
+                    .expect("bind failed");
+                let server = hyper::server::conn::Http::new().with_executor(TokioUringExecutor);
+                while let Ok((stream, addr)) = listener.accept().await {
+                    let router_capture = shared_router.clone();
+                    server
+                        .serve_connection(
+                            stream,
+                            service_fn(move |req| {
+                                route(router_capture.clone(), addr.to_string(), req)
+                            }),
+                        )
+                        .await
+                        .expect("error in serve_connection");
+                }
+            }
+        }
     }
 }
 

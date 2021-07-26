@@ -65,7 +65,7 @@ struct ServiceWrapper<S> {
 }
 
 impl<S> ServiceWrapper<S> {
-    fn new(inner: S) -> Self {
+    const fn new(inner: S) -> Self {
         Self { inner }
     }
 }

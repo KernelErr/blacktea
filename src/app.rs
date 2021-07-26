@@ -29,7 +29,7 @@ pub struct SubApp {
 }
 
 impl App {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self { apps: Vec::new() }
     }
 

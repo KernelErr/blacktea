@@ -36,7 +36,7 @@ impl HttpResponse<Body> {
     }
 
     #[inline]
-    pub fn from_builder(res: Response<Body>) -> Self {
+    pub const fn from_builder(res: Response<Body>) -> Self {
         Self { res }
     }
 }
@@ -46,7 +46,7 @@ pub struct HttpResponseBuilder {
 }
 
 impl HttpResponseBuilder {
-    pub fn new(builder: HyperHttpResponseBuilder) -> Self {
+    pub const fn new(builder: HyperHttpResponseBuilder) -> Self {
         Self { builder }
     }
 
